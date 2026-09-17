@@ -1,0 +1,25 @@
+# Decision brief 14/28 — sharing doctrine
+
+RECOMMENDATION: coherence-is-cost (anchor as written). Default = per-core shards + posted IPI / bounded SPSC handoff; coherence is measured cost, not medium; single-owner beats transparent sharing. Unteach first: "a is a for all cores; correctness = add mutex" → replace with "a writable share is a coherence transaction (~100cy–140ns+); default to owner, price the share."
+
+## THINK-1 (from metal)
+CPU lies: each core sees own stores first (store buffer), others see them late — "shared variable" is N buffered views + memory, not one thing. Sharing a writable line requires exclusive ownership (RFO + invalidate all sharers); cost scales with sharer count and distance, paid on writer's critical path. Granularity mismatch: coherence at 64B, language shares at word/object — unrelated words on same line couple (false sharing is hardware-mandated, invisible in source). NUMA: one address space, two speeds — transparent sharing hides 1.5–3x asymmetry until tail latency. LOCK/XCHG = serialization point + drain — default-locks means default-serial. Inference: make shared-writable the expensive explicit measured path; default single-owner shard + explicit handoff (posted IPI / queue), not transparent coherence.
+
+## HARDWARE FINDINGS (x86-only, web)
+- x86-TSO = FIFO store buffer per HW thread: Owens/Sarkar/Sewell CACM 2009 — SB litmus (MOV [x]←1; MOV EAX←[y] || inverse) allows EAX=0,EBX=0 (both reads pre-drain); only StoreLoad reordered; MFENCE/LOCK drains/restores SC; IRIW not observed on real silicon; forwarding from own buffer required. Sources: CACM x86-TSO; cl.cam.ac.uk weakmemory/cacm.pdf.
+- LOCK cost: Agner Fog tables — LOCK prefix typically >100 clocks even single-processor (lock cache line for exclusive access, may involve RAM; applies to XCHG with mem operand). ETH atomic-bench: R_O(S) [read-for-ownership + invalidate sharers] + E(A) [lock line, exec, writeback M]; contended CAS/FAA bandwidth collapses vs uncontended. Sources: Agner Fog instruction_tables.pdf; spcl.inf.ethz.ch atomic-bench.pdf.
+- False sharing @64B: all Intel/AMD x64 = 64B line (Lemire strided-copy: 2x stride → >50% faster, dip at multiples of 64). Linux false-sharing.rst: line is unit of ownership; refcount+name in one line → readers reload on every bump. perf c2c metric: Load Local/Remote HITM; every write invalidates all holders, full 64B reload from L3/mem, traffic ~linear in writers. Sources: kernel false-sharing docs; lemire.me/blog 2023-12-12; intel-performance-skills false-sharing.md.
+- NUMA ~1.6–2.3x latency, ~3x BW: 2-socket Xeon MLC — Cascade local 80.8ns / remote 140.4ns (1.74x); Skylake 90.2/144.3ns (1.6x); cache-to-cache local L2→L2 HITM 49.3ns vs remote 114.1ns (2.3x); read BW local ~104GB/s vs remote ~34GB/s (~3x). Migration off gives 1.6–2.4x geomean in microbench. Sources: VSC Genius MLC; Intel NUMA-migrations paper.
+- MESI/MESIF RFO: Forward state serves shared lines cache-to-cache in 2 hops without mem; RFO = request exclusive + invalidations + ACKs before write completes. Haswell-EP study: core-to-core cost is first-class latency/BW term. Sources: Goodman/Hum MESIF-2009; IEEE 7349629.
+
+## THINK-2 (after findings)
+Transparent-shared-with-locks teaches the exact inversion: coherence looks free, locks look like the cost. Metal says opposite: coherence (RFO/invalidate/c2c/NUMA) IS the cost; uncontended LOCK ~100+cy is floor, contended line-ping-pong + remote HITM ~114ns + NUMA 140ns is ceiling. TSO hides it briefly in store buffer, then charges at drain/RFO. TM-default doesn't fix it (hides RFOs under optimistic concurrency, still pays ownership + abort storms). Message-passing-only-with-zero-sharing overcorrects (forbids even read-mostly sharing F-state handles cheaply; forces copies where single-owner + borrow/handoff suffices). Coherence-is-cost survives both: default per-core shard, sharing = explicit posted-IPI/queue handoff with ownership transfer, shared-writable only with measured budget. Composability: single-owner makes perf local-reasonable; transparent sharing makes perf global-emergent (HITM elsewhere stalls you).
+
+## REASONS
+Don't fight CPU: TSO rewards private-store + drain-once handoff; punishes interleaved RMW on shared line. Cost is order-of-magnitude (100cy LOCK floor, 2.3x c2c, 1.7x/3x NUMA, 10x false-sharing anecdotal) — enough to flip scaling. Composability: single-owner local-reasonable vs transparent global-emergent.
+
+## PROVING EXPERIMENT (one, decisive)
+2-thread counter, same silicon, 3 variants, perf c2c + MLC: A) shared atomic_fetch_add on one line; B) alignas(64) per-core counters + periodic combine; C) SPSC handoff. Predict: A high HITM/RFO, collapsed throughput, remote ~2x; B/C ~order faster, HITM <1%. If A ≈ B on multi-socket contended run, anchor is wrong.
+
+## WHAT WOULD CHANGE MY MIND
+Contended LOCK/RFO measures ~plain-store cost (<2x) across sockets; perf c2c shows no HITM penalty for shared-RMW at scale; or NUMA local≈remote (<10%) on target server parts. Then transparent-shared wins on simplicity.

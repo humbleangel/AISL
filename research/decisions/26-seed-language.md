@@ -1,0 +1,23 @@
+# Decision brief 26/28 (cross-cutting) — bootstrap seed language
+
+RECOMMENDATION: MINIMAL-ASM with diverse second seed. Choose MINIMAL-ASM: hand-hex hex0 (<500B) → hex2/M0 tiny assembler in strict x86-64 subset → self-hosting compiler. Forbid all ISA outside subset in seed tools.
+
+## THINK-1 (trilemma)
+Seed must be simultaneously: (1) small enough for 1 human to fully audit, (2) uncompromised root, (3) powerful enough to reach self-hosting compiler + OS without stalling. HAND-HEX: trust max, audit max (~300–500B); power min (no labels/symbols, absolute bytes; every later tool hand-encoded; human error dominates; scales badly on x86-64 variable-length REX/ModR/M/SIB). MINIMAL-ASM: trust ≈ hand-hex if implementation is hex0 + M0 in hex; audit slightly larger (~1–2KB); power jump (labels + macros + mnemonics → can write C-subset compiler) — sweet spot. FORTH-LIKE: power max early (interpreter = OS shell from step one) but adds threaded-dispatch semantic layer to audit, hides x86-64 (stack VM fights register/CPU), DDC/diversity harder (must clone semantics not encoding) — elegant, wrong first. C-SUBSET via existing toolchain: power max, trust zero — imports ~100MB opaque binary (GCC) as root; DDC-check after the fact doesn't remove root dependence (only detects mismatch if you already have independent trusted compiler — which you don't). Core tension: x86-64 decode is hostile — want smallest decodable subset mapping 1:1 to bytes, then stop hand-work there.
+
+## HARDWARE FINDINGS (web, directly relevant)
+- x86-64 full ISA unauditable; functional subset tiny: Intel manuals >2900 pages. Brown/MIT course guides: fully functional compiler needs only mov/lea/add/sub/imul/cmp/jcc/call/ret/push/pop/syscall + ~8 GPRs. Discipline to ~20 encodings sufficient, rest forbidden. Sources: Brown csci1260 x86-64 reference; MIT 6.828 x86-64 guide.
+- Sub-500B hand seed proven: Orians stage0 hex0 (reads 2 hex nybbles → 1 byte, ;/# comments only, self-hosting at ~500B; hex0-seed 357B hand-auditable). M0 macro-assembler in hex2 adds labels/macros/relative+absolute fixups, then cc_x86 C-compiler in assembly. Guix x86_64 now full-source bootstraps from hex0-seed. Sources: oriansj/stage0; GNU Mes Stage0 manual; Guix 1.5.0 Full-Source-Bootstrap; man.sr.ht bootstrappable/stage0.
+- DDC needs independent trusted compiler + determinism: Wheeler 2005/2009 (compile parent source with trusted 2nd compiler → compile compiler source with result → bit-identical = source=binary; demonstrated on tcc + Lisp + GCC). Implication: C-SUBSET-from-GCC alone proves nothing; need diverse 2nd path. Sources: dwheeler.com/trusting-trust; arxiv 1004.5534; ACSAC 2005.
+
+## THINK-2 (after findings)
+Findings confirm lean: hand-hex IS possible but confined to hex0 only (~357B); everything above in MINIMAL-ASM (hex2/M0). Respects "don't fight CPU": assembler is thin syntax over variable-length encoding, no VM abstraction. FORTH loses (x86-64 not a stack machine; threaded interpreter adds audit load + semantic gap where Thompson payload hides). C-SUBSET loses as seed (fine as stage 3+ via M2-Planet/mes/tcc once root exists). Diversity must be at hex0/M0 level, not just DDC at C level: two humans independently write hex0 from spec (one hex, one e.g. octal-mnemonic variant) and must produce bit-identical M0 — kills both Thompson and single-author bug.
+
+## REASONS
+Auditability (1 human audits 357B seed + ~1KB M0 mapping). Trust (no opaque binary; root is typable hex; second independent seed gives Thompson-diversity DDC alone can't). Power (labels/macros = minimum jump to real compiler; raw hex never gets there reliably). CPU fit (1:1 mnemonic→bytes, no VM).
+
+## PROVING EXPERIMENT (bootstrap from nothing)
+1. Two people independently implement hex0 spec (read 2 nybbles→byte, skip non-hex, ;/# comments) by hand-entering bytes, no assembler. 2. Each self-compiles canonical hex0_x86.hex0; results must be bit-identical. 3. Build M0_x86.hex2 with both, assemble >256B test (forward/backward labels, % long jump, & pointer) + mov $0,%rdi; mov $60,%rax; syscall exit(0) ELF; run under Linux/QEMU. Pass = auditable path from hand bytes to running labeled program with diversity. Fail = seed too complex.
+
+## WHAT WOULD CHANGE MY MIND
+Two independent hex0s fail to converge in <~40h work → x86-64 encoding too hostile → HAND-HEX on simpler VM then cross to x86-64. M0+subset unable to express C-subset compiler without importing >10KB opaque code → FORTH-LIKE wins on power. Reproducible DDC at C level (M2-Planet/mes) already gives bit-closure without second hex seed → C-SUBSET+DDC suffices, drop diversity requirement.
