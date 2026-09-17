@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows · Unix · AISL — Comparative Table</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --dim:#8b949e;
+    --win:#58a6ff; --unix:#e3b341; --aisl:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    line-height:1.55;padding:40px 20px 80px}
+  .wrap{max-width:1180px;margin:0 auto}
+  header{text-align:center;margin-bottom:8px}
+  header h1{font-size:2rem;margin:0 0 6px;letter-spacing:.5px}
+  header h1 .w{color:var(--win)} header h1 .u{color:var(--unix)} header h1 .a{color:var(--aisl)}
+  header p{color:var(--dim);margin:0 0 28px}
+  .legend{display:flex;gap:18px;justify-content:center;margin-bottom:26px;flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:.9rem}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  table{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.93rem}
+  thead th{position:sticky;top:0;background:#1c2128;padding:14px 18px;text-align:left;
+    font-size:1rem;border-bottom:1px solid var(--line);z-index:2}
+  thead th.win{color:var(--win)} thead th.unix{color:var(--unix)} thead th.aisl{color:var(--aisl)}
+  tbody th{text-align:left;padding:14px 18px;width:200px;vertical-align:top;
+    border-bottom:1px solid var(--line);color:var(--text);font-size:.92rem}
+  tbody td{padding:14px 18px;vertical-align:top;border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+  tbody tr:last-child th, tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td, tbody tr:hover th{background:#1a2029}
+  td strong{color:var(--text)}
+  footer{text-align:center;color:var(--dim);font-size:.82rem;margin-top:26px}
+  @media(max-width:760px){
+    tbody th{width:auto;display:block;border-left:none;padding-bottom:0;color:var(--dim);
+      text-transform:uppercase;font-size:.75rem;letter-spacing:.06em}
+    tbody td{display:block;border-left:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="w">Windows</span> · <span class="u">Unix</span> · <span class="a">AISL</span></h1>
+    <p>Three foundations compared — what each one is, and what it believes about the machine.</p>
+  </header>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--win)"></i>Windows NT lineage</span>
+    <span><i class="dot" style="background:var(--unix)"></i>Unix lineage (incl. macOS, Linux)</span>
+    <span><i class="dot" style="background:var(--aisl)"></i>AISL — AI System Language</span>
+  </div>
+  <table>
+    <thead><tr><th></th><th class="win">Windows</th><th class="unix">Unix</th><th class="aisl">AISL</th></tr></thead>
+    <tbody>
+      <tr><th>Born</th>
+        <td><strong>1993, NT.</strong> A fresh VMS-influenced kernel keeping DOS/Win32 compatibility on top.</td>
+        <td><strong>1969, Bell Labs.</strong> Thompson &amp; Ritchie; portable OS plus the C language, bootstrapped from nothing.</td>
+        <td><strong>2026, from scratch.</strong> Replays the Unix bootstrap honestly: hand seed → tiny assembler → self-hosting system.</td></tr>
+      <tr><th>Kernel idea</th>
+        <td>Objects with access lists, async I/O — sound core buried under Win32 accretion.</td>
+        <td>Small core, everything-is-a-file, processes that fork. Elegant once, frozen since.</td>
+        <td>One address space, pinned tasks, no processes to fork and no files to parse.</td></tr>
+      <tr><th>Language vs system</th>
+        <td>Two worlds: apps speak Win32/.NET, the kernel speaks its own tongue. A translation layer forever between.</td>
+        <td>Two worlds: C programs on one side, syscalls on the other. The split every Unix inherits.</td>
+        <td><strong>One thing.</strong> The language and the system are the same artifact — no translation layer to betray either side.</td></tr>
+      <tr><th>Who may do what</th>
+        <td>Users, groups, Administrator — ambient powers attached to <em>who you are</em>, scattered across registry, policies, and file flags.</td>
+        <td>Users, root, mode bits — whoever holds the name holds the power; root can do anything, silently.</td>
+        <td>Nothing ambient. Every access presents an explicit hardware-bound capability; there is no root.</td></tr>
+      <tr><th>Files</th>
+        <td>Drive letters, backslashes, registry plus INI plus XML — several truths about configuration, none complete.</td>
+        <td>A single tree of bytes with paths. Simple, universal — and the reason everything must be parsed, forever.</td>
+        <td>No files, no paths, no file descriptors. Persistent typed objects addressed directly, never parsed.</td></tr>
+      <tr><th>Tasks</th>
+        <td>Processes and threads with shared everything; preempted anywhere, at any time.</td>
+        <td>Processes that fork; threads sharing memory; the scheduler may interrupt anyone mid-thought.</td>
+        <td>One pinned task per core, running to completion. Nothing arrives unasked; interrupts are messages, not theft.</td></tr>
+      <tr><th>Calling the kernel</th>
+        <td>Hundreds of syscalls plus a fast-call ABI — the largest attack surface, kept for compatibility.</td>
+        <td>A table of syscalls every program must know; the boundary every exploit crosses.</td>
+        <td>No syscalls at all. Crossing is a checked call; faults are the normal path, not the exception.</td></tr>
+      <tr><th>Time</th>
+        <td>One wall clock everybody trusts — until daylight saving, NTP jumps, or virtualization prove otherwise.</td>
+        <td>One wall clock plus timers; causality left to whoever asks.</td>
+        <td>No global now. Causality ticks forward only when messages are sent; wall time is an outward-signed estimate, never truth.</td></tr>
+      <tr><th>Who vouches</th>
+        <td>Signatures and vendors vouch — which attests <em>who signed</em>, never whether the bytes match the source.</td>
+        <td>Permissions and package managers vouch — same gap one level down.</td>
+        <td>Nobody vouches alone. Diverse rebuilds plus measured pages plus outward quorum — trust is a verdict, never a claim.</td></tr>
+      <tr><th>What survives a crash</th>
+        <td>Whatever the filesystem journal happened to flush — torn writes presented as committed.</td>
+        <td>Whatever fsync actually reached the disk — frequently less than promised.</td>
+        <td>Only crash-consistent appends. Power loss is the normal case, not the emergency; resume is the only boot.</td></tr>
+      <tr><th>Old software</th>
+        <td>Must run: thirty years of binaries, drivers, and quirks carried forever. Compatibility is the product.</td>
+        <td>Must run: POSIX is a promise that can never be broken, only extended.</td>
+        <td>May not run. No compatibility layer, no legacy drivers, no POSIX — forgetting is a feature.</td></tr>
+      <tr><th>Openness</th>
+        <td>Closed core, open ecosystem of apps — open where it sells, closed where it counts.</td>
+        <td>Open core, open ecosystem — and Apple proves the same core can be dressed into a closed garden.</td>
+        <td>Open process: public bootstrap log from hand-checked seed to reproducible build. Nothing to take on faith.</td></tr>
+      <tr><th>When it breaks</th>
+        <td>Blue screen, error codes, event logs — failure as paperwork after the fact.</td>
+        <td>Errno, signals, core dumps — failure as a number nobody reads.</td>
+        <td>Failure as design material: compiler betrayal, silent corruption, power loss, and stolen time each have a named detector first.</td></tr>
+      <tr><th>How it changes</th>
+        <td>Vendor ships, users accept. Intent flows one way — down.</td>
+        <td>Maintainers merge; distributions package. Intent negotiated in mailing lists.</td>
+        <td>One holder, expiring lease, machine dissent first, human last. Only sealed intent-diffs merge — never code floods.</td></tr>
+      <tr><th>Guiding principle</th>
+        <td>Don't break the customer.</td>
+        <td>Do one thing well — then keep it forever.</td>
+        <td>Don't fight the CPU: use its instructions intelligently to build the first tool.</td></tr>
+      <tr><th>Built first for</th>
+        <td>Every desktop, by default.</td>
+        <td>Every server, by default.</td>
+        <td>One signing vault: the place whose keys stay unstealable even by malicious hardware.</td></tr>
+    </tbody>
+  </table>
+  <footer>AISL — AI System Language · research in progress · generated from the project repository</footer>
+</div>
+</body>
+</html>
